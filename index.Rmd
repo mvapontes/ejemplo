@@ -3,8 +3,12 @@ title: "miprimer-git"
 author: "MVAP"
 date: "2025-12-02"
 output: 
+  html_document:
+    toc: true
+    number_sections: true
   github_document:
     html_preview: false
+
 ---
 
 ```{r setup, include=FALSE}
