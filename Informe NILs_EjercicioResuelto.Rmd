@@ -1,0 +1,194 @@
+---
+title: |
+  ![](logo_UCO.png){width=10%}
+  Informe NILs
+  ![](Logo_FacCiencias.png){width=10%}
+author: "Adrián Pérez Rial z12peria@uco.es"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+  github_document:
+    html_preview: false
+bibliography: ["zotero.bib", "libraries.bib"]
+link-citations: true
+---
+
+```{=html}
+<!-- Antes de comenzar !!!
+debes crear el archivo con las referencias de R y los paquetes que vayas a utilizar.  
+Puedes actualizar el archivo en cualquier momento, sólo copia en la terminal el siguiente código y añade el nuevo paquete a la lista, se creará un nuevo archivo con las referencias en el formato adecuado "BibTeX". De forma automática incluye la referencia de R-->
+```
+
+<!-- knitr::write_bib(c(.packages(), 'dplyr', 'ggplot2', 'knitr', 'tinytex'), 'libraries.bib') -->
+
+<!-- Inicio Rmd -->
+
+<!-- Configuración global de los bloques de código, `echo = TRUE` -> todo el código utilizado en este documento aparecerá en el documento final salvo que se expecifique lo contrario, a excepción de este bloque de código, `include=TRUE`  -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<!-- cargar las librerias que vamos a utilizar, queremos que el código se ejecute, pero no que aparezca en el documento final, también excluímos los avisos y mensajes -->
+
+```{r cargar-librerias, echo=FALSE, warning=FALSE, message=FALSE}
+library('dplyr')
+library('ggplot2')
+```
+
+<!-- Para generar títulos, subtítulos etc se usa # el número de # determina el estilo y el formato del texto -->
+
+# Introducción
+
+## El trabajo seleccionado
+
+<!-- Trabajamos los diferentes estilos de text (negrita, cursiva, tachado, superíndice y subíndice), notas a pie de página [^N], citas > y referencias [@código] -->
+
+<!-- En HTML podemos usar la etiqueda de css para usar diferentes colores en el texto:  -->
+
+<!-- <span style:"color:blue"PALABRA(S)</span> -->
+
+Vamos a trabajar con los datos de [@perez2024phenotypic]. Este trabajo describe [genes candidatos de la floración]{style="color: green;"} en [garbanzo]{style="color: red;"} (*Cicer arietinum*) como *MED16*, *BBX24* o *ELF3*, este último también reportado por otros estudios como [@ridge_chickpea_2017]. Los mecanismos básicos de floración estudiados en la planta modelo Arabidopsis thaliana están conservados en las leguminosas ([@weller_genetic_2019; @hecht_conservation_2005; @weller_genetic_2015]), exceptuando ciertos genes como *CONSTANS* [@wong_isolation_2014].
+
+## Los datos
+
+<!-- Leer los datos desde el fichero que está en la misma carpeta que Rmarkdown. Si el fichero está en otra carpeta actualizar la localización del archivo -->
+
+```{r leer-datos, echo=FALSE, warning=FALSE}
+library(readxl)
+Data <- read_excel("12870_2024_5411_MOESM1_ESM.xlsx", 
+    skip = 1)
+```
+
+<!-- Links a páginas/archivos externos [](direcciónLink)  -->
+
+Los datos de este proyecto fueron descargados desde [NILs Adrián](https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-024-05411-y).
+
+<!-- Primera vista de los datos -->
+
+```{r vista-datos, echo=FALSE}
+knitr::kable(head(Data, 8), align = 'c', caption = "Tabla 1: Diez primeras filas")
+```
+
+<!-- El código R en línea -->
+
+Los datos tienen `r nrow(Data)` filas y `r ncol(Data)` columnas.
+
+Cada fila se corresponde con un SNP, por tanto, hay `r nrow(Data)` SNPs.
+
+<!-- Filtra los datos para quedarte solo con los cromosomas (sus códigos empiezan por NC_) -->
+
+```{r Filtro-cromosomas, include = FALSE}
+Data <- Data %>% filter(CHROM %in% c("NC_021160.1","NC_021161.1", "NC_021162.1", "NC_021163.1", "NC_021164.1", "NC_021165.1","NC_021166.1", "NC_021167.1"))
+```
+
+Del total de SNPs detectados, `r nrow(Data)` se corresponden con SNPs situados en cromosomas (Figura 1).
+
+<!-- Calcula el número de SNPs por cromosoma que tiene el garbanzo con la función `count` y guarda los datos ordenados de forma descendiente en variable nueva -->
+
+```{r cromosoma-con-mas-SNPs, echo = FALSE}
+Cromosomas <- Data %>% 
+  count(CHROM) %>% 
+  arrange(desc(n))
+```
+
+<!-- Utilizar la variable nueva para hacer un gráfico de barras incluyendo el pie de figura y la posición -->
+
+```{r grafico-cromosoma-SNPs, echo=FALSE, out.width="60%", fig.cap="Figura 1. Número de SNPs por cromosomas", fig.align='center'}
+ggplot(Cromosomas) +
+  geom_col(aes(y = n, x = CHROM))+
+  xlab("Cromosomas")+
+  ylab("Num.SNPs")
+
+```
+
+## Hipótesis
+
+Nuestra hipótesis es que los cromosomas con mayor número de SNPs presentan mayor % de SNPs que no pasan el filtro de calidad
+
+------------------------------------------------------------------------
+
+# Materiales y Methods
+
+<!-- Para indicar una referencia se utiliza [@codigo] -->
+
+Para llevar a cabo el análisis usamos R [@R-base] con las librerias dplyr [@R-dplyr] y ggplot [@R-ggplot2; @ggplot22016]. Para la creación de este informe hemos utilizado el paquete knitr [@R-knitr; @knitr2015; @knitr2014] y pandoc.
+
+------------------------------------------------------------------------
+
+# Resultados
+
+<!-- Selecciona del dataset `Data` únicamente las columnas **CHROM**, **POS** y **FILTER**.   -->
+
+```{r seleccion_columnas, echo = FALSE}
+datos_filtrados <- Data %>%
+  select(CHROM, POS, FILTER)
+```
+
+<!-- Crea una nueva variable en la que todo valor distinto de *PASS* se transforme en *NOT_PASS*.   -->
+
+```{r recodificacion, echo = FALSE}
+datos_filtrados <- datos_filtrados %>%
+  mutate(FILTER = ifelse(FILTER == "PASS", "PASS", "NOT_PASS"))
+```
+
+## Cálculo de porcentajes por cromosoma
+
+```{r, echo =FALSE}
+# Calcular el número total de SNPs y el porcentaje de NOT_PASS por cromosoma
+resumen_relacion <- datos_filtrados %>%
+  group_by(CHROM) %>%
+  summarise(
+    total_SNPs = n(),
+    not_pass = sum(FILTER == "NOT_PASS"),
+    porcentaje_not_pass = round(not_pass / total_SNPs * 100, 1)
+  )
+```
+
+El procentaje de SNPs que no pasan el filtro se muentra en la Tabla 2.
+
+```{r, echo = FALSE}
+knitr::kable(
+  resumen_relacion %>%
+    mutate(porcentaje_not_pass = paste0(porcentaje_not_pass, "%")),
+  caption = "Tabla 2. Porcentaje de SNPs que pasan y no pasan el filtro por cromosoma"
+)
+```
+
+## Representación gráfica
+
+El siguiente modelo muestra la relación entre el número total y los SNPs no filtrados (Figura 2).
+
+```{r grafico-relacion, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Fig 2. Relación entre el número total de SNPs y el porcentaje de SNPs que no pasan el filtro de calidad"}
+ggplot(resumen_relacion, aes(x = total_SNPs, y = porcentaje_not_pass)) +
+  geom_point(color = "darkblue", size = 3) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(x = "Número total de SNPs por cromosoma",
+       y = "% de SNPs que no pasan el filtro")
+```
+
+```{r correlacion, echo=FALSE}
+correlacion <- cor(resumen_relacion$total_SNPs, resumen_relacion$porcentaje_not_pass)
+
+```
+
+El coeficiente de correlación es `r round(correlacion, 2)`
+
+------------------------------------------------------------------------
+
+# Conclusiones
+
+Los datos NO apoyan nuestra hipótesis. Es la contraria: los cromosomas en los que se detectan menos SNPs, presentan mayor porcentaje de SNPs que no pasan el filtro.
+
+------------------------------------------------------------------------
+
+<!-- Para asegurar la reproducibilidad de los resultados es necesario conocer el sistema operativo y la version de software y paquetes -->
+
+# Información de la sesión y referencias
+
+```{r sessionInfo, echo=FALSE}
+session <- sessionInfo()
+print(session)
+```
